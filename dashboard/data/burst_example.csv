@@ -1,0 +1,9 @@
+tx_id,customer_id,ts,tx_type,channel,amount_d,country,fraud_label,secs_since_prev,tx_count_10m,amount_10m,probe_before_10m,amount_vs_30d,rule_naive,rule_velocity,rule_card_testing,rule_country_hop,rule_probe_attack,rule_window
+4025,699,2026-01-15T12:02:17,card_payment,online,2.2,US,1,260538,1,2.2,0,0.0,0,0,0,0,0,0
+4026,699,2026-01-15T12:03:49,card_payment,online,2.13,US,1,92,2,4.33,1,0.0,0,0,0,0,1,0
+4027,699,2026-01-15T12:05:38,card_payment,online,477.66,US,1,109,3,481.99,1,1.19,0,1,1,0,0,1
+4028,699,2026-01-15T12:06:16,card_payment,online,527.84,US,1,38,4,1009.83,1,1.28,0,1,1,0,0,1
+4029,699,2026-01-15T12:07:07,card_payment,online,443.07,US,1,51,5,1452.9,1,1.04,0,1,1,0,0,1
+4030,699,2026-01-15T12:08:23,card_payment,online,427.36,US,1,76,6,1880.26,1,1.0,0,1,1,0,0,1
+4032,699,2026-01-15T12:11:11,card_payment,online,480.38,RU,1,168,7,2360.64,1,1.13,0,1,1,0,0,1
+4033,699,2026-01-15T12:13:40,card_payment,online,513.7,RU,1,149,7,2872.14,1,1.19,0,1,1,0,0,1

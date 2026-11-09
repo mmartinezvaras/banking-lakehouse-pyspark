@@ -1,0 +1,161 @@
+{
+  "layers": {
+    "bronze_rows": 50880,
+    "silver_rows": 50109,
+    "quarantined_rows": 746,
+    "quarantine_reasons": {
+      "duplicate_delivery": 493,
+      "missing_or_unparseable_amount": 104,
+      "unknown_customer": 73,
+      "non_positive_amount": 48,
+      "unparseable_timestamp": 28
+    },
+    "customers": 1000,
+    "fraud_transactions": 83,
+    "first_day": "2026-01-01",
+    "last_day": "2026-07-01",
+    "silver_partitions": 7
+  },
+  "batches": [
+    {
+      "batch": "2026-H1",
+      "bronze_rows": 50569,
+      "inserted": 49827,
+      "updated": 0,
+      "quarantined": 742
+    },
+    {
+      "batch": "2026-07-01",
+      "bronze_rows": 311,
+      "inserted": 282,
+      "updated": 25,
+      "quarantined": 4
+    }
+  ],
+  "rules": [
+    {
+      "key": "naive",
+      "name": "Pago grande en el extranjero",
+      "description": "card payment abroad over €900: the rule without window functions",
+      "realtime": true
+    },
+    {
+      "key": "velocity",
+      "name": "Velocidad",
+      "description": "3 or more online card payments abroad within 10 minutes",
+      "realtime": true
+    },
+    {
+      "key": "card_testing",
+      "name": "Prueba de tarjeta",
+      "description": "a payment of €100+ abroad within 10 minutes of a tiny online probe",
+      "realtime": true
+    },
+    {
+      "key": "country_hop",
+      "name": "Salto de país",
+      "description": "a payment in a different foreign country less than an hour after the previous one, 5× the usual amount",
+      "realtime": true
+    },
+    {
+      "key": "probe_attack",
+      "name": "Sonda antes del ataque (revisión)",
+      "description": "a tiny probe followed within 10 minutes by a payment of €100+ (uses lead: next-day review)",
+      "realtime": false
+    }
+  ],
+  "rule_metrics": [
+    {
+      "rule": "naive",
+      "name": "Pago grande en el extranjero (sin ventanas)",
+      "true_positives": 20,
+      "false_positives": 139,
+      "false_negatives": 63,
+      "precision": 0.126,
+      "recall": 0.241,
+      "f1": 0.165,
+      "false_alerts_per_day": 0.76,
+      "bursts": 13,
+      "bursts_detected": 4,
+      "fraud_amount": 55306.0,
+      "fraud_amount_stopped": 34973.34,
+      "share_stopped": 0.632,
+      "median_payment_of_first_alert": 3
+    },
+    {
+      "rule": "window",
+      "name": "Reglas con ventanas (tiempo real)",
+      "true_positives": 59,
+      "false_positives": 78,
+      "false_negatives": 24,
+      "precision": 0.431,
+      "recall": 0.711,
+      "f1": 0.536,
+      "false_alerts_per_day": 0.43,
+      "bursts": 13,
+      "bursts_detected": 13,
+      "fraud_amount": 55306.0,
+      "fraud_amount_stopped": 55260.25,
+      "share_stopped": 0.999,
+      "median_payment_of_first_alert": 3
+    },
+    {
+      "rule": "window_review",
+      "name": "Ventanas + revisión con lead",
+      "true_positives": 67,
+      "false_positives": 91,
+      "false_negatives": 16,
+      "precision": 0.424,
+      "recall": 0.807,
+      "f1": 0.556,
+      "false_alerts_per_day": 0.5,
+      "bursts": 13,
+      "bursts_detected": 13,
+      "fraud_amount": 55306.0,
+      "fraud_amount_stopped": 55275.41,
+      "share_stopped": 0.999,
+      "median_payment_of_first_alert": 2
+    }
+  ],
+  "delta": {
+    "silver_history": [
+      {
+        "version": 0,
+        "operation": "WRITE",
+        "metrics": {
+          "numOutputRows": 49827
+        }
+      },
+      {
+        "version": 1,
+        "operation": "MERGE",
+        "metrics": {
+          "numOutputRows": 50109,
+          "numTargetRowsInserted": 282,
+          "numTargetRowsUpdated": 25
+        }
+      }
+    ],
+    "time_travel": {
+      "rows_version_0": 49827,
+      "rows_now": 50109,
+      "corrected_rows": 25,
+      "example": {
+        "tx_id": 14,
+        "ts": "2026-01-01T05:26:13",
+        "amount_before": 8.82,
+        "amount_after": 7.94
+      }
+    },
+    "optimize": {
+      "silver_transactions": {
+        "files_removed": 0,
+        "files_added": 0
+      },
+      "gold_fraud_features": {
+        "files_removed": 2,
+        "files_added": 1
+      }
+    }
+  }
+}
