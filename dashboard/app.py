@@ -19,7 +19,7 @@ from theme import CHART, page_css
 
 DATA = Path(__file__).parent / "data"
 REPO = "https://github.com/mmartinezvaras/banking-lakehouse-pyspark"
-THEMES = {"auto": ("brightness_auto", "Auto"), "light": ("light_mode", "Claro"), "dark": ("dark_mode", "Noche")}
+THEMES = {"auto": ("contrast", "Auto"), "light": ("light_mode", "Claro"), "dark": ("dark_mode", "Noche")}
 REASONS = {
     "duplicate_delivery": "Fila repetida (enviada dos veces)",
     "missing_or_unparseable_amount": "Importe vacío o ilegible",

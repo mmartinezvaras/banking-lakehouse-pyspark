@@ -119,7 +119,7 @@ CSS = """
 .ic { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-right: .4em;
   background-color: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
 .lx-travel .ic { width: 1.5rem; height: 1.5rem; margin: 0; color: var(--lx-ink-2); }
-[data-testid="stBaseButton-segmented_controlActive"] [data-testid="stIconMaterial"] { color: var(--lx-sheet) !important; }
+.stApp [data-testid="stBaseButton-segmented_controlActive"] *, .stApp .st-key-theme button[aria-checked="true"] * { color: var(--lx-sheet) !important; }
 
 /* Rule comparison: plain HTML bars, labelled directly (tone + label, never colour alone) */
 .lx-bargroups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.4rem; }
