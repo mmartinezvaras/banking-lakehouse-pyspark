@@ -23,6 +23,20 @@ def ready(page: Page, url: str) -> None:
         raise SystemExit(f"Dashboard error: {errors.first.inner_text()}")
 
 
+def full_page(page: Page, path: Path) -> None:
+    """Streamlit scrolls inside its main container, so grow the viewport to the content height."""
+    size = page.viewport_size
+    height = page.evaluate(
+        "() => Math.max(...[...document.querySelectorAll('[data-testid=stMain], [data-testid=stAppViewContainer]')]"
+        ".map(e => e.scrollHeight), document.body.scrollHeight)"
+    )
+    page.set_viewport_size({"width": size["width"], "height": int(height)})
+    page.wait_for_timeout(2000)
+    page.screenshot(path=path)
+    page.set_viewport_size(size)
+    page.wait_for_timeout(500)
+
+
 def theme_button(page: Page, label: str):
     return page.locator(".st-key-theme button").filter(has_text=label).first
 
@@ -50,16 +64,17 @@ def main() -> None:
         desktop.screenshot(path=args.out / "light-top.png")
         switch_visible(desktop)
         desktop.screenshot(path=args.out / "light-top.png")
-        desktop.screenshot(path=args.out / "light.png", full_page=True)
+        full_page(desktop, args.out / "light.png")
         theme_button(desktop, "Noche").click()
         desktop.wait_for_timeout(2500)
         desktop.screenshot(path=args.out / "dark-top.png")
-        desktop.screenshot(path=args.out / "dark.png", full_page=True)
+        full_page(desktop, args.out / "dark.png")
 
         phone = browser.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2, color_scheme="light")
         ready(phone, args.url)
         switch_visible(phone)
         phone.screenshot(path=args.out / "phone.png")
+        full_page(phone, args.out / "phone-full.png")
         browser.close()
     print(f"Screenshots in {args.out}")
 

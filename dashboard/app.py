@@ -55,7 +55,10 @@ def esc(value) -> str:
 
 
 def pct(x: float) -> str:
-    return f"{x * 100:.0f} %"
+    """Whole percent, but never round 99.9 % up to a misleading 100 %."""
+    v = x * 100
+    text = f"{v:.0f}" if round(v) < 100 or v >= 100 else f"{v:.1f}"
+    return text.replace(".", ",") + " %"
 
 
 def eur(x: float) -> str:

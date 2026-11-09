@@ -60,7 +60,8 @@ CSS = """
   transition: background-color 250ms ease, color 250ms ease;
 }
 [data-testid="stHeader"] { background: transparent; }
-.stApp p, .stApp li, .stApp label, .stApp span, .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
+.stApp p, .stApp li, .stApp label, .stApp span:not(.ms):not([data-testid="stIconMaterial"]), .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
+.stApp [data-testid="stIconMaterial"] { color: inherit !important; }
 [data-testid="stCaptionContainer"] p { color: var(--lx-ink-2); }
 .stApp a { color: var(--lx-accent); }
 [data-testid="stMainBlockContainer"] { max-width: 1080px; padding-top: 2.5rem; }
@@ -89,7 +90,7 @@ CSS = """
 }
 @media (hover: hover) and (pointer: fine) { .st-key-theme button:hover { background: var(--lx-accent-soft); } }
 
-.ms { font-family: "Material Symbols Rounded"; font-weight: 400; font-size: 1.2em; line-height: 1; vertical-align: -0.2em;
+.stApp .ms { font-family: "Material Symbols Rounded"; font-weight: 400; font-size: 1.2em; line-height: 1; vertical-align: -0.2em;
   margin-right: .35em; font-variation-settings: "FILL" 0, "opsz" 24; user-select: none; }
 
 /* Hero */
