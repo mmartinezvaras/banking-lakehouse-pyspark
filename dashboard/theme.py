@@ -33,12 +33,12 @@ DARK = {
 # Chart colours: three tones of ink, never colour alone (shapes and labels carry the meaning).
 CHART = {
     "light": {"ink": NEGRO, "mid": GRAFITO, "soft": PLATA, "grid": "#E4E4E8", "label": GRAFITO},
-    "dark": {"ink": BLANCO, "mid": INDIGO, "soft": PLATA, "grid": "#2A2A2A", "label": PLATA},
+    "dark": {"ink": BLANCO, "mid": PLATA, "soft": GRAFITO, "grid": "#2A2A2A", "label": PLATA},
 }
 
 FONTS = (
     "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700"
-    "&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=swap"
+    "&display=swap"
 )
 
 
@@ -60,7 +60,7 @@ CSS = """
   transition: background-color 250ms ease, color 250ms ease;
 }
 [data-testid="stHeader"] { background: transparent; }
-.stApp p, .stApp li, .stApp label, .stApp span:not(.ms):not([data-testid="stIconMaterial"]), .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
+.stApp p, .stApp li, .stApp label, .stApp span:where(:not(.ms):not([data-testid="stIconMaterial"])), .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
 .stApp [data-testid="stIconMaterial"] { color: inherit !important; }
 [data-testid="stCaptionContainer"] p { color: var(--lx-ink-2); }
 .stApp a { color: var(--lx-accent); text-decoration: underline; text-decoration-color: var(--lx-rule);
@@ -95,8 +95,8 @@ CSS = """
 }
 .st-key-theme button:focus-visible, .stApp a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--lx-halo) !important; }
 
-.stApp .ms { font-family: "Material Symbols Rounded"; font-weight: 400; font-size: 1.2em; line-height: 1; vertical-align: -0.2em;
-  margin-right: .35em; font-variation-settings: "FILL" 0, "opsz" 24; user-select: none; }
+.stApp .ms { width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-right: .4em; flex: none; }
+.lx-travel .ms { width: 1.6rem; height: 1.6rem; margin: 0; color: var(--lx-ink-2); }
 
 /* Hero */
 .lx-hero h1 { font-size: clamp(2rem, 4.4vw, 3rem); font-weight: 700; letter-spacing: -0.035em; line-height: 1.05;
@@ -144,7 +144,7 @@ CSS = """
 
 /* Delta history */
 .lx-versions { list-style: none; margin: 0; padding: 0; }
-.lx-versions li { display: grid; grid-template-columns: 3.2rem 7.5rem 1fr; gap: .6rem; padding: .55rem 0; border-bottom: 1px solid var(--lx-rule); font-size: .92rem; }
+.lx-versions li { display: grid; grid-template-columns: 3.2rem 10rem 1fr; gap: .6rem; padding: .55rem 0; border-bottom: 1px solid var(--lx-rule); font-size: .92rem; }
 .lx-versions li:last-child { border-bottom: 0; }
 .lx-versions .ver { font-weight: 700; font-variant-numeric: tabular-nums; }
 .lx-versions .op { font-weight: 600; }

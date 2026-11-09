@@ -31,6 +31,11 @@ REASONS = {
     "invalid_country": "País no válido",
     "invalid_tx_id": "Identificador no válido",
 }
+COUNTRY = {
+    "ES": "España", "FR": "Francia", "DE": "Alemania", "IT": "Italia", "PT": "Portugal", "GB": "Reino Unido",
+    "US": "Estados Unidos", "MA": "Marruecos", "CN": "China", "BR": "Brasil", "NG": "Nigeria", "RU": "Rusia",
+}
+CHANNEL = {"pos": "tienda", "online": "online", "atm": "cajero", "app": "app", "branch": "oficina"}
 RULE_SHORT = {"naive": "Regla simple", "window": "Ventanas", "window_review": "Ventanas + revisión"}
 
 st.set_page_config(page_title="Fraude bancario · Lakehouse", page_icon=":material/account_balance:", layout="wide")
@@ -58,19 +63,43 @@ def pct(x: float) -> str:
     """Whole percent, but never round 99.9 % up to a misleading 100 %."""
     v = x * 100
     text = f"{v:.0f}" if round(v) < 100 or v >= 100 else f"{v:.1f}"
-    return text.replace(".", ",") + " %"
+    return text.replace(".", ",") + "\u00a0%"
 
 
 def eur(x: float) -> str:
     return f"{x:,.0f} €".replace(",", ".")
 
 
+def eur2(x: float) -> str:
+    """Spanish format with cents: 1.234,56 €"""
+    return f"{x:,.2f}".replace(",", " ").replace(".", ",").replace(" ", ".") + " €"
+
+
+def dec(x: float, digits: int = 2) -> str:
+    return f"{x:.{digits}f}".replace(".", ",")
+
+
 def num(x: int) -> str:
     return f"{x:,}".replace(",", ".")
 
 
+# Inline 24 px stroke icons: no icon font to download, so they never flash as text.
+ICONS = {
+    "description": '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+    "inventory_2": '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
+    "cleaning_services": '<path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
+    "insights": '<path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/><circle cx="19" cy="6" r="1.2"/>',
+    "history": '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+    "arrow_forward": '<path d="M4 12h16M14 6l6 6-6 6"/>',
+    "code": '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>',
+}
+
+
 def icon(name: str) -> str:
-    return f'<span class="ms" aria-hidden="true">{name}</span>'
+    return (
+        '<svg class="ms" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+        f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{ICONS[name]}</svg>'
+    )
 
 
 def style(chart: alt.Chart) -> alt.Chart:
@@ -119,7 +148,7 @@ kpis = [
     (num(L["silver_rows"]), "movimientos limpios en Silver", f"{num(L['quarantined_rows'])} filas sucias apartadas"),
     (pct(window["share_stopped"]), "del dinero robado se habría frenado", f"con la regla simple: {pct(naive['share_stopped'])}"),
     (f"{window['bursts_detected']} de {window['bursts']}", "ataques detectados", f"regla simple: {naive['bursts_detected']} de {naive['bursts']}"),
-    (f"{window['false_alerts_per_day']:.1f}".replace(".", ","), "falsas alarmas al día", f"regla simple: {str(naive['false_alerts_per_day']).replace('.', ',')}"),
+    (dec(window["false_alerts_per_day"]), "falsas alarmas al día", f"regla simple: {dec(naive['false_alerts_per_day'])}"),
 ]
 st.html(
     '<div class="lx-kpis">'
@@ -197,7 +226,7 @@ st.html(
 metric_rows = []
 for k in order:
     for label, key in [("Dinero frenado", "share_stopped"), ("Fraude detectado", "recall"), ("Precisión", "precision")]:
-        metric_rows.append({"Regla": RULE_SHORT[k], "Métrica": label, "Valor": M[k][key]})
+        metric_rows.append({"Regla": RULE_SHORT[k], "Métrica": label, "Valor": M[k][key], "Texto": pct(M[k][key])})
 mdf = pd.DataFrame(metric_rows)
 tones = alt.Scale(domain=[RULE_SHORT[k] for k in order], range=[C["soft"], C["ink"], C["mid"]])
 base = alt.Chart(mdf).encode(
@@ -206,7 +235,7 @@ base = alt.Chart(mdf).encode(
 )
 rules_chart = (
     (base.mark_bar(cornerRadiusEnd=4, height=18).encode(color=alt.Color("Regla:N", scale=tones, legend=None))
-     + base.mark_text(align="left", dx=6, color=C["label"], fontSize=12).encode(text=alt.Text("Valor:Q", format=".0%")))
+     + base.mark_text(align="left", dx=6, color=C["label"], fontSize=12).encode(text="Texto:N"))
     .properties(height=96)
     .facet(row=alt.Row("Métrica:N", sort=["Dinero frenado", "Fraude detectado", "Precisión"], title=None,
                        header=alt.Header(labelAngle=0, labelAlign="left", labelAnchor="start", labelPadding=4)))
@@ -216,16 +245,27 @@ st.altair_chart(style(rules_chart), use_container_width=True)
 
 # ---------- 3. Anatomy of an attack ----------
 burst = pd.read_csv(DATA / "burst_example.csv", parse_dates=["ts"])
-st.html(
-    """<section class="lx-sec"><h2>Anatomía de un ataque</h2>
-<p>Un cliente real del conjunto de datos: horas de actividad normal y, de repente, una tarjeta comprometida. Primero
-un cobro de prueba de pocos euros; minutos después, pagos online en el extranjero. Las ventanas lo ven al segundo
-pago; la regla simple, solo si algún importe supera 900 €.</p></section>"""
+fr = burst[burst["fraud_label"] == 1]
+probes, payments = fr[fr["amount_d"] < 5], fr[fr["amount_d"] >= 5]
+alerted = fr["rule_window"].to_numpy().nonzero()[0]
+first_alert = f"en el {alerted[0] + 1}.º movimiento del ataque" if len(alerted) else "tarde"
+places = " y ".join(dict.fromkeys(COUNTRY.get(c, c) for c in payments["country"]))
+story = (
+    f"Un ataque real del conjunto de datos, pago a pago: {len(probes)} cobros de prueba de unos pocos euros para "
+    f"comprobar que la tarjeta funciona y, minutos después, {len(payments)} pagos online en {places} de "
+    f"{eur2(payments['amount_d'].min())} a {eur2(payments['amount_d'].max())}. Ninguno supera 900 €, así que la regla "
+    f"simple no ve nada; las ventanas saltan {first_alert}."
+    if len(payments) and payments["amount_d"].max() <= 900
+    else "Un ataque real del conjunto de datos, pago a pago: primero cobros de prueba de pocos euros y, minutos "
+    "después, pagos online en el extranjero."
 )
+st.html(f'<section class="lx-sec"><h2>Anatomía de un ataque</h2><p>{esc(story)}</p></section>')
 if not burst.empty:
     burst["Tipo"] = burst["fraud_label"].map({1: "Fraude", 0: "Legítimo"})
     burst["Alerta"] = burst["rule_window"].map({1: "Alerta de las ventanas", 0: "Sin alerta"})
     burst["Hora"] = burst["ts"]
+    SHAPES = {"Legítimo": "circle", "Fraude": "cross"}
+    kinds = [k for k in SHAPES if k in set(burst["Tipo"])]
     burst["Importe"] = burst["amount_d"]
     base = alt.Chart(burst).encode(
         x=alt.X("Hora:T", title=None, axis=alt.Axis(format="%H:%M")),
@@ -236,8 +276,8 @@ if not burst.empty:
         ],
     )
     points = base.mark_point(size=110, filled=True, opacity=1).encode(
-        shape=alt.Shape("Tipo:N", scale=alt.Scale(domain=["Legítimo", "Fraude"], range=["circle", "cross"]), title=None),
-        color=alt.Color("Tipo:N", scale=alt.Scale(domain=["Legítimo", "Fraude"], range=[C["soft"], C["ink"]]), legend=None),
+        shape=alt.Shape("Tipo:N", scale=alt.Scale(domain=kinds, range=[SHAPES[k] for k in kinds]), title=None),
+        color=alt.Color("Tipo:N", scale=alt.Scale(domain=kinds, range=[C["soft"] if k == "Legítimo" else C["ink"] for k in kinds]), legend=None),
     )
     rings = base.transform_filter(alt.datum.rule_window == 1).mark_point(size=420, filled=False, strokeWidth=1.6).encode(
         stroke=alt.Stroke("Alerta:N", scale=alt.Scale(range=[C["mid"]]), title=None)
@@ -253,7 +293,7 @@ if not burst.empty:
                                           ("rule_country_hop", "salto de país"), ("rule_probe_attack", "cobro de prueba")] if r[col] == 1]
         rows_html += (
             f'<tr class="{"is-fraud" if r["fraud_label"] == 1 else ""}"><td>{r["ts"]:%H:%M:%S}</td>'
-            f'<td class="num">{r["amount_d"]:,.2f} €</td><td>{esc(r["country"])}</td><td>{esc(r["channel"])}</td>'
+            f'<td class="num">{eur2(r["amount_d"])}</td><td>{esc(COUNTRY.get(r["country"], r["country"]))}</td><td>{esc(CHANNEL.get(r["channel"], r["channel"]))}</td>'
             f'<td class="num">{int(r["tx_count_10m"])}</td><td>{esc(", ".join(signals) or "—")}</td>'
             f'<td>{tick(r["rule_naive"])}</td><td>{tick(r["rule_window"])}</td><td>{"Fraude" if r["fraud_label"] == 1 else "Legítimo"}</td></tr>'
         )
@@ -261,7 +301,7 @@ if not burst.empty:
         '<div class="lx-card lx-scroll"><table class="lx-table"><thead><tr><th>Hora</th><th class="num">Importe</th><th>País</th>'
         '<th>Canal</th><th class="num">Pagos en 10 min</th><th>Señales</th><th>Regla simple</th><th>Ventanas</th><th>Realidad</th>'
         f"</tr></thead><tbody>{rows_html}</tbody></table>"
-        '<p class="lx-note">Filas resaltadas: el fraude real (la etiqueta que el banco conocería días después por las '
+        '<p class="lx-note">Filas resaltadas: fraude real (la etiqueta que el banco conocería días después por las '
         "reclamaciones). Las reglas no la usan; sirve para medirlas.</p></div>"
     )
 
@@ -271,7 +311,7 @@ if not trip.empty:
     fp = int(trip["rule_naive"].sum())
     st.html(
         f"""<section class="lx-sec"><h2>Un viajero no es un fraude</h2>
-<p>El cliente al que más falsas alarmas daría la regla simple: un viaje a {esc(trip['country'].mode()[0])} con
+<p>El cliente al que más falsas alarmas daría la regla simple: un viaje a {esc(COUNTRY.get(trip['country'].mode()[0], trip['country'].mode()[0]))} con
 {len(trip)} pagos. La regla simple marca {fp} (el hotel, el coche de alquiler); las ventanas, {int(trip['rule_window'].sum())}:
 son pagos en tienda, espaciados en días y en un único país.</p></section>"""
     )
@@ -307,8 +347,8 @@ if ex:
     travel = (
         f'<div class="lx-card"><div class="lx-note" style="margin:0 0 .5rem">{icon("history")}Viaje en el tiempo: el movimiento '
         f'{ex["tx_id"]} del {ex["ts"][:10]}, leído en la versión 0 y hoy</div><div class="lx-travel">'
-        f'<span class="amt old">{ex["amount_before"]:,.2f} €</span><span class="ms" aria-hidden="true">arrow_forward</span>'
-        f'<span class="amt">{ex["amount_after"]:,.2f} €</span></div><p class="lx-note">El banco reenvió '
+        f'<span class="amt old">{eur2(ex["amount_before"])}</span>' + icon("arrow_forward") + f''
+        f'<span class="amt">{eur2(ex["amount_after"])}</span></div><p class="lx-note">El banco reenvió '
         f'{tt["corrected_rows"]} movimientos con el importe corregido. <code>MERGE</code> los actualiza en lugar de '
         "duplicarlos, y la versión anterior sigue consultable.</p></div>"
     )
