@@ -1,12 +1,16 @@
 .venv/
 __pycache__/
 .pytest_cache/
+.ruff_cache/
 .ipynb_checkpoints/
 .DS_Store
 .env
-data/raw/*.csv
+*.egg-info/
+data/raw/**/*.csv
+data/lakehouse/
 data/processed/*
 !data/processed/.gitkeep
 spark-warehouse/
 metastore_db/
 derby.log
+screenshots/

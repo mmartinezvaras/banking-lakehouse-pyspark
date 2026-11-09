@@ -1,14 +1,84 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test:
+    name: Lint + tests (Spark + Delta)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - run: pytest
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -e . ruff
+      - run: ruff check .
+      - run: pytest -v --durations=10
+
+  pipeline:
+    name: Full pipeline → dashboard data
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -e . -r dashboard/requirements.txt playwright
+      - name: Generate synthetic data
+        run: python -m banking_lakehouse.generate_data
+      - name: Run the lakehouse (Bronze → Silver → Gold, MERGE, OPTIMIZE)
+        run: python -m banking_lakehouse.pipeline
+      - name: Re-run is idempotent
+        run: python -m banking_lakehouse.pipeline --no-export | tee rerun.log && grep -q "already loaded" rerun.log
+      - name: Dashboard screenshots
+        run: |
+          python -m playwright install --with-deps chromium
+          streamlit run dashboard/app.py --server.headless true --server.port 8501 &
+          for i in $(seq 1 60); do curl -sf http://localhost:8501/_stcore/health && break; sleep 2; done
+          python scripts/screenshots.py --url http://localhost:8501 --out screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard
+          path: |
+            dashboard/data
+            screenshots
+      - name: Commit refreshed dashboard data
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard/data
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: refresh dashboard data from the pipeline [skip ci]"
+            git pull --rebase origin main && git push origin HEAD:main
+          fi
+      - name: Publish screenshots to the screenshots branch
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          cd screenshots
+          git init -q -b screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add . && git commit -qm "Dashboard screenshots for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" screenshots

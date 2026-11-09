@@ -1,2 +1,4 @@
-faker>=25.0
-pytest>=8.0
+pyspark==4.1.1
+delta-spark==4.2.0
+Faker>=33,<50
+pytest==9.1.1

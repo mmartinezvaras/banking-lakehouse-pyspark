@@ -1,0 +1,13 @@
+{
+  "name": "Banking lakehouse (PySpark + Delta)",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": { "version": "17", "jdkDistro": "tem" }
+  },
+  "postCreateCommand": "pip install -r requirements.txt -e . -r dashboard/requirements.txt && python -m banking_lakehouse.generate_data && python -m banking_lakehouse.pipeline",
+  "postAttachCommand": "streamlit run dashboard/app.py --server.headless true",
+  "forwardPorts": [8501],
+  "portsAttributes": { "8501": { "label": "Dashboard", "onAutoForward": "openPreview" } },
+  "customizations": { "vscode": { "extensions": ["ms-python.python", "charliermarshall.ruff"] } },
+  "hostRequirements": { "memory": "8gb" }
+}
