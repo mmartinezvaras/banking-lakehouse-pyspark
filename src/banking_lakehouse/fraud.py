@@ -29,6 +29,7 @@ after: it marks the tiny probe payments once the attack that followed is known.
 from __future__ import annotations
 
 import operator
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import reduce
 
@@ -87,49 +88,52 @@ def _card_abroad() -> Column:
     return (F.col("tx_type") == "card_payment") & F.col("is_foreign")
 
 
-RULES: dict[str, tuple[Rule, Column]] = {}
+# Conditions are built lazily (Column objects need an active SparkSession).
+RULES: dict[str, tuple[Rule, Callable[[], Column]]] = {}
 
 
-def _rule(key: str, name: str, description: str, condition: Column, realtime: bool = True) -> None:
+def _rule(key: str, name: str, description: str, condition: Callable[[], Column], realtime: bool = True) -> None:
     RULES[key] = (Rule(key, name, description, realtime), condition)
 
 
 def _define_rules() -> None:
-    hop = (
-        F.col("prev_country").isNotNull()
-        & (F.col("prev_country") != F.col("country"))
-        & (F.col("prev_country") != "ES")
-        & (F.col("secs_since_prev") <= 3600)
-    )
+    def hop() -> Column:
+        return (
+            F.col("prev_country").isNotNull()
+            & (F.col("prev_country") != F.col("country"))
+            & (F.col("prev_country") != "ES")
+            & (F.col("secs_since_prev") <= 3600)
+        )
+
     _rule(
         "naive",
         "Pago grande en el extranjero",
         "card payment abroad over €900: the rule without window functions",
-        _card_abroad() & (F.col("amount_d") > 900),
+        lambda: _card_abroad() & (F.col("amount_d") > 900),
     )
     _rule(
         "velocity",
         "Velocidad",
         "3 or more online card payments abroad within 10 minutes",
-        _card_abroad() & (F.col("channel") == "online") & (F.col("tx_count_10m") >= 3),
+        lambda: _card_abroad() & (F.col("channel") == "online") & (F.col("tx_count_10m") >= 3),
     )
     _rule(
         "card_testing",
         "Prueba de tarjeta",
         "a payment of €100+ abroad within 10 minutes of a tiny online probe",
-        _card_abroad() & F.col("probe_before_10m") & (F.col("amount_d") >= 100),
+        lambda: _card_abroad() & F.col("probe_before_10m") & (F.col("amount_d") >= 100),
     )
     _rule(
         "country_hop",
         "Salto de país",
         "a payment in a different foreign country less than an hour after the previous one, 5× the usual amount",
-        _card_abroad() & hop & (F.col("amount_vs_30d") >= 5),
+        lambda: _card_abroad() & hop() & (F.col("amount_vs_30d") >= 5),
     )
     _rule(
         "probe_attack",
         "Sonda antes del ataque (revisión)",
         "a tiny probe followed within 10 minutes by a payment of €100+ (uses lead: next-day review)",
-        F.col("is_probe") & (F.col("secs_to_next") <= TEN_MIN) & (F.col("next_amount") >= 100),
+        lambda: F.col("is_probe") & (F.col("secs_to_next") <= TEN_MIN) & (F.col("next_amount") >= 100),
         realtime=False,
     )
 
@@ -143,7 +147,7 @@ def apply_rules(features: DataFrame) -> DataFrame:
     for alerts, the list of rules that fired."""
     df = features
     for key, (_, condition) in RULES.items():
-        df = df.withColumn(f"rule_{key}", F.coalesce(condition, F.lit(False)))
+        df = df.withColumn(f"rule_{key}", F.coalesce(condition(), F.lit(False)))
     df = df.withColumn("rule_window", reduce(operator.or_, [F.col(f"rule_{k}") for k in WINDOW_RULES]))
     df = df.withColumn("rule_window_review", F.col("rule_window") | F.col("rule_probe_attack"))
     reasons = [F.when(F.col(f"rule_{k}"), F.lit(RULES[k][0].name)) for k in WINDOW_RULES]
