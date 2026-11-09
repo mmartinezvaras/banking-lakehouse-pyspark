@@ -55,6 +55,9 @@ def test_dashboard_export(lakehouse):
     assert summary["layers"]["silver_partitions"] == 7  # Jan – Jul 2026
     assert summary["delta"]["time_travel"]["corrected_rows"] > 0
     ops = [h["operation"] for h in summary["delta"]["silver_history"]]
-    assert ops[0] == "WRITE" and "MERGE" in ops and "OPTIMIZE" in ops
+    assert ops[0] == "WRITE" and "MERGE" in ops
+    # OPTIMIZE only commits a version when there were small files to compact.
+    compacted = summary["delta"]["optimize"]["silver_transactions"]["files_removed"] > 0
+    assert ("OPTIMIZE" in ops) == compacted
     for name in ["daily.csv", "burst_example.csv", "trip_example.csv", "recent_alerts.csv"]:
         assert (export / name).stat().st_size > 0, name
