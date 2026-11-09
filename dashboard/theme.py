@@ -63,7 +63,9 @@ CSS = """
 .stApp p, .stApp li, .stApp label, .stApp span:not(.ms):not([data-testid="stIconMaterial"]), .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
 .stApp [data-testid="stIconMaterial"] { color: inherit !important; }
 [data-testid="stCaptionContainer"] p { color: var(--lx-ink-2); }
-.stApp a { color: var(--lx-accent); }
+.stApp a { color: var(--lx-accent); text-decoration: underline; text-decoration-color: var(--lx-rule);
+  text-underline-offset: 3px; transition: text-decoration-color 150ms ease; }
+@media (hover: hover) and (pointer: fine) { .stApp a:hover { text-decoration-color: var(--lx-accent); } }
 [data-testid="stMainBlockContainer"] { max-width: 1080px; padding-top: 2.5rem; }
 
 /* Theme switch: one pill, right-aligned, never scrolls */
@@ -88,7 +90,10 @@ CSS = """
 [data-testid="stBaseButton-segmented_controlActive"] span, .st-key-theme button[aria-checked="true"] p {
   color: var(--lx-sheet) !important;
 }
-@media (hover: hover) and (pointer: fine) { .st-key-theme button:hover { background: var(--lx-accent-soft); } }
+@media (hover: hover) and (pointer: fine) {
+  .st-key-theme button:not([data-testid="stBaseButton-segmented_controlActive"]):hover { background: var(--lx-ring); }
+}
+.st-key-theme button:focus-visible, .stApp a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--lx-halo) !important; }
 
 .stApp .ms { font-family: "Material Symbols Rounded"; font-weight: 400; font-size: 1.2em; line-height: 1; vertical-align: -0.2em;
   margin-right: .35em; font-variation-settings: "FILL" 0, "opsz" 24; user-select: none; }
@@ -126,7 +131,9 @@ CSS = """
 .lx-table td { padding: .55rem .6rem; border-bottom: 1px solid var(--lx-rule); color: var(--lx-ink); vertical-align: top; }
 .lx-table tr:last-child td { border-bottom: 0; }
 .lx-table td.num, .lx-table th.num { text-align: right; }
+.lx-table td { transition: background-color 150ms ease; }
 .lx-table tr.is-fraud td { background: var(--lx-mark); }
+@media (hover: hover) and (pointer: fine) { .lx-table tbody tr:not(.is-fraud):hover td { background: var(--lx-ring); } }
 .lx-table .best { font-weight: 700; }
 .lx-scroll { overflow-x: auto; }
 .lx-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: .05rem .5rem; font-size: .76rem; font-weight: 600;
@@ -146,10 +153,14 @@ CSS = """
 .lx-travel .amt { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; }
 .lx-travel .old { color: var(--lx-ink-2); text-decoration: line-through; text-decoration-thickness: 2px; }
 
-/* One orchestrated entrance: the KPI strip */
-.lx-kpi { animation: lx-in 420ms var(--lx-ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
+/* One orchestrated entrance on page load: hero, then the KPI strip in a 50 ms cascade.
+   Seen once per visit, so it may run a little longer than interaction feedback (still < 400 ms). */
+.lx-hero { animation: lx-in 360ms var(--lx-ease) both; }
+.lx-kpi { animation: lx-in 360ms var(--lx-ease) both; animation-delay: calc(80ms + var(--i, 0) * 50ms); }
 @keyframes lx-in { from { opacity: 0; transform: translateY(8px); } }
-@media (prefers-reduced-motion: reduce) { .lx-kpi { animation-name: lx-fade; } @keyframes lx-fade { from { opacity: 0; } } }
+@keyframes lx-fade { from { opacity: 0; } }
+/* Reduced motion: keep the fade (it helps orientation), drop the movement */
+@media (prefers-reduced-motion: reduce) { .lx-hero, .lx-kpi { animation-name: lx-fade; animation-duration: 200ms; } }
 
 @media (max-width: 760px) {
   .lx-kpis, .lx-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
