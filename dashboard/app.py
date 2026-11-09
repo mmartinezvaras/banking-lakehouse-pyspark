@@ -72,7 +72,7 @@ def eur(x: float) -> str:
 
 def eur2(x: float) -> str:
     """Spanish format with cents: 1.234,56 €"""
-    return f"{x:,.2f}".replace(",", " ").replace(".", ",").replace(" ", ".") + " €"
+    return f"{x:,.2f}".replace(",", " ").replace(".", ",").replace(" ", ".") + "\u00a0€"
 
 
 def dec(x: float, digits: int = 2) -> str:
@@ -83,23 +83,12 @@ def num(x: int) -> str:
     return f"{x:,}".replace(",", ".")
 
 
-# Inline 24 px stroke icons: no icon font to download, so they never flash as text.
-ICONS = {
-    "description": '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
-    "inventory_2": '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
-    "cleaning_services": '<path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
-    "insights": '<path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/><circle cx="19" cy="6" r="1.2"/>',
-    "history": '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
-    "arrow_forward": '<path d="M4 12h16M14 6l6 6-6 6"/>',
-    "code": '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>',
-}
-
-
 def icon(name: str) -> str:
-    return (
-        '<svg class="ms" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
-        f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{ICONS[name]}</svg>'
-    )
+    """Stroke icon drawn with a CSS mask (see theme.ICONS): no icon font, and st.html keeps it."""
+    return f'<span class="ic ic-{name}" aria-hidden="true"></span>'
+
+
+THOUSANDS = "replace(format(datum.value, ',.0f'), ',', '.')"  # Spanish thousands separator
 
 
 def style(chart: alt.Chart) -> alt.Chart:
@@ -185,7 +174,7 @@ reasons = pd.DataFrame(
 if not reasons.empty:
     bars = alt.Chart(reasons).encode(
         y=alt.Y("Motivo:N", sort="-x", title=None, axis=alt.Axis(labelLimit=260)),
-        x=alt.X("Filas:Q", title="Filas en cuarentena"),
+        x=alt.X("Filas:Q", title="Filas en cuarentena", axis=alt.Axis(tickCount=5, labelExpr=THOUSANDS)),
     )
     chart = bars.mark_bar(color=C["ink"], cornerRadiusEnd=4, height=16) + bars.mark_text(
         align="left", dx=6, color=C["label"], fontSize=12
@@ -200,6 +189,17 @@ no ve los ataques que se quedan por debajo de 900 €. Las reglas con <b>window 
 contexto de los anteriores del mismo cliente: cuántos lleva en 10 minutos, si justo antes hubo un cobro diminuto de
 prueba, si ha saltado de país.</p></section>"""
 )
+order = ["naive", "window", "window_review"]
+groups = ""
+for label, key in [("Dinero robado frenado", "share_stopped"), ("Fraude detectado", "recall"), ("Precisión", "precision")]:
+    bars_html = "".join(
+        f'<div class="lx-bar {k}"><span class="who">{esc(RULE_SHORT[k])}</span>'
+        f'<span class="track"><span class="fill" style="--w:{M[k][key] * 100:.1f}%"></span></span>'
+        f'<span class="val">{esc(pct(M[k][key]))}</span></div>'
+        for k in order
+    )
+    groups += f'<div class="lx-bars"><div class="h">{esc(label)}</div>{bars_html}</div>'
+st.html(f'<div class="lx-card lx-bargroups">{groups}</div>')
 rows = [
     ("Fraude detectado (recall)", "recall", pct),
     ("Alertas que eran fraude (precisión)", "precision", pct),
@@ -208,7 +208,6 @@ rows = [
     ("Falsas alarmas al día", "false_alerts_per_day", lambda v: f"{v:.2f}".replace(".", ",")),
     ("Pago del ataque en que salta la alarma (mediana)", "median_payment_of_first_alert", lambda v: "—" if v is None else f"{v}.º"),
 ]
-order = ["naive", "window", "window_review"]
 head = "".join(f'<th class="num">{esc(RULE_SHORT[k])}</th>' for k in order)
 body = ""
 for label, key, fmt in rows:
@@ -223,25 +222,6 @@ st.html(
     "día siguiente, marca también los cobros de prueba.</p></div>"
 )
 
-metric_rows = []
-for k in order:
-    for label, key in [("Dinero frenado", "share_stopped"), ("Fraude detectado", "recall"), ("Precisión", "precision")]:
-        metric_rows.append({"Regla": RULE_SHORT[k], "Métrica": label, "Valor": M[k][key], "Texto": pct(M[k][key])})
-mdf = pd.DataFrame(metric_rows)
-tones = alt.Scale(domain=[RULE_SHORT[k] for k in order], range=[C["soft"], C["ink"], C["mid"]])
-base = alt.Chart(mdf).encode(
-    y=alt.Y("Regla:N", sort=[RULE_SHORT[k] for k in order], title=None),
-    x=alt.X("Valor:Q", axis=alt.Axis(format="%", tickCount=5), scale=alt.Scale(domain=[0, 1]), title=None),
-)
-rules_chart = (
-    (base.mark_bar(cornerRadiusEnd=4, height=18).encode(color=alt.Color("Regla:N", scale=tones, legend=None))
-     + base.mark_text(align="left", dx=6, color=C["label"], fontSize=12).encode(text="Texto:N"))
-    .properties(height=96)
-    .facet(row=alt.Row("Métrica:N", sort=["Dinero frenado", "Fraude detectado", "Precisión"], title=None,
-                       header=alt.Header(labelAngle=0, labelAlign="left", labelAnchor="start", labelPadding=4)))
-    .resolve_scale(y="independent")
-)
-st.altair_chart(style(rules_chart), use_container_width=True)
 
 # ---------- 3. Anatomy of an attack ----------
 burst = pd.read_csv(DATA / "burst_example.csv", parse_dates=["ts"])
@@ -268,15 +248,17 @@ if not burst.empty:
     kinds = [k for k in SHAPES if k in set(burst["Tipo"])]
     burst["Importe"] = burst["amount_d"]
     base = alt.Chart(burst).encode(
-        x=alt.X("Hora:T", title=None, axis=alt.Axis(format="%H:%M")),
-        y=alt.Y("Importe:Q", scale=alt.Scale(type="log"), title="Importe (€, escala log)"),
+        x=alt.X("Hora:T", title=None, axis=alt.Axis(format="%H:%M", tickCount=6, labelOverlap=True)),
+        y=alt.Y("Importe:Q", scale=alt.Scale(type="log"), title="Importe (€, escala logarítmica)",
+                axis=alt.Axis(values=[1, 3, 10, 30, 100, 300, 1000, 3000], labelExpr=THOUSANDS)),
         tooltip=[
             alt.Tooltip("Hora:T", format="%d/%m %H:%M:%S"), alt.Tooltip("Importe:Q", format=",.2f"), "country:N",
             "channel:N", alt.Tooltip("tx_count_10m:Q", title="Pagos en 10 min"), "Tipo:N", "Alerta:N",
         ],
     )
     points = base.mark_point(size=110, filled=True, opacity=1).encode(
-        shape=alt.Shape("Tipo:N", scale=alt.Scale(domain=kinds, range=[SHAPES[k] for k in kinds]), title=None),
+        shape=alt.Shape("Tipo:N", scale=alt.Scale(domain=kinds, range=[SHAPES[k] for k in kinds]), title=None,
+                        legend=alt.Legend(symbolFillColor=C["ink"], symbolStrokeColor=C["ink"])),
         color=alt.Color("Tipo:N", scale=alt.Scale(domain=kinds, range=[C["soft"] if k == "Legítimo" else C["ink"] for k in kinds]), legend=None),
     )
     rings = base.transform_filter(alt.datum.rule_window == 1).mark_point(size=420, filled=False, strokeWidth=1.6).encode(
@@ -318,7 +300,7 @@ son pagos en tienda, espaciados en días y en un único país.</p></section>"""
     tbase = alt.Chart(trip.assign(Importe=trip["amount_d"], Hora=trip["ts"],
                                   Regla=trip["rule_naive"].map({1: "Marcado por la regla simple", 0: "Sin alerta"}))).encode(
         x=alt.X("Hora:T", title=None, axis=alt.Axis(format="%d/%m")),
-        y=alt.Y("Importe:Q", title="Importe (€)"),
+        y=alt.Y("Importe:Q", title="Importe (€)", axis=alt.Axis(tickCount=4, labelExpr=THOUSANDS)),
         tooltip=[alt.Tooltip("Hora:T", format="%d/%m %H:%M"), alt.Tooltip("Importe:Q", format=",.2f"), "country:N", "Regla:N"],
     )
     trip_chart = tbase.mark_bar(width=4, color=C["soft"]) + tbase.transform_filter(alt.datum.rule_naive == 1).mark_point(
@@ -373,9 +355,10 @@ if not daily.empty:
 de verdad.</p></section>"""
     )
     line = alt.Chart(long).mark_line(point=True, strokeWidth=2).encode(
-        x=alt.X("tx_date:T", title=None, axis=alt.Axis(format="%d %b")),
+        x=alt.X("tx_date:T", title=None, axis=alt.Axis(format="%d/%m", tickCount=8)),
         y=alt.Y("Movimientos:Q", title="Movimientos por semana"),
-        color=alt.Color("Serie:N", scale=alt.Scale(domain=list(names.values()), range=[C["soft"], C["ink"], C["mid"]]), title=None),
+        color=alt.Color("Serie:N", scale=alt.Scale(domain=list(names.values()), range=[C["soft"], C["ink"], C["mid"]]), title=None,
+                        legend=alt.Legend(symbolType="stroke", symbolStrokeWidth=2.5, symbolSize=300)),
         strokeDash=alt.StrokeDash("Serie:N", scale=alt.Scale(domain=list(names.values()), range=[[6, 4], [1, 0], [2, 3]]), title=None),
         tooltip=[alt.Tooltip("tx_date:T", title="Semana del", format="%d/%m"), "Serie:N", "Movimientos:Q"],
     )

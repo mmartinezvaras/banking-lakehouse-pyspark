@@ -41,6 +41,27 @@ FONTS = (
     "&display=swap"
 )
 
+ICONS = {
+    "description": '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+    "inventory_2": '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
+    "cleaning_services": '<path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
+    "insights": '<path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/>',
+    "history": '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+    "arrow_forward": '<path d="M4 12h16M14 6l6 6-6 6"/>',
+    "code": '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>',
+}
+
+
+def _icon_css() -> str:
+    from urllib.parse import quote
+
+    out = []
+    for name, paths in ICONS.items():
+        svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" '
+               f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{paths}</svg>')
+        out.append(f'.ic-{name}{{--ic:url("data:image/svg+xml,{quote(svg)}");}}')
+    return "".join(out)
+
 
 def _vars(tokens: dict) -> str:
     return "".join(f"--lx-{k}:{v};" for k, v in tokens.items())
@@ -49,7 +70,7 @@ def _vars(tokens: dict) -> str:
 def page_css(mode: str) -> str:
     light, dark = f":root{{{_vars(LIGHT)}color-scheme:light;}}", f":root{{{_vars(DARK)}color-scheme:dark;}}"
     tokens = dark if mode == "dark" else light + (f"@media (prefers-color-scheme: dark){{{dark}}}" if mode == "auto" else "")
-    return f"<style>@import url('{FONTS}');{tokens}{CSS}</style>"
+    return f"<style>@import url('{FONTS}');{tokens}{CSS}{_icon_css()}</style>"
 
 
 CSS = """
@@ -60,7 +81,7 @@ CSS = """
   transition: background-color 250ms ease, color 250ms ease;
 }
 [data-testid="stHeader"] { background: transparent; }
-.stApp p, .stApp li, .stApp label, .stApp span:where(:not(.ms):not([data-testid="stIconMaterial"])), .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
+.stApp p, .stApp li, .stApp label, .stApp span:where(:not(.ic):not([data-testid="stIconMaterial"])), .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
 .stApp [data-testid="stIconMaterial"] { color: inherit !important; }
 [data-testid="stCaptionContainer"] p { color: var(--lx-ink-2); }
 .stApp a { color: var(--lx-accent); text-decoration: underline; text-decoration-color: var(--lx-rule);
@@ -95,8 +116,25 @@ CSS = """
 }
 .st-key-theme button:focus-visible, .stApp a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--lx-halo) !important; }
 
-.stApp .ms { width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-right: .4em; flex: none; }
-.lx-travel .ms { width: 1.6rem; height: 1.6rem; margin: 0; color: var(--lx-ink-2); }
+.ic { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-right: .4em;
+  background-color: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+.lx-travel .ic { width: 1.5rem; height: 1.5rem; margin: 0; color: var(--lx-ink-2); }
+[data-testid="stBaseButton-segmented_controlActive"] [data-testid="stIconMaterial"] { color: var(--lx-sheet) !important; }
+
+/* Rule comparison: plain HTML bars, labelled directly (tone + label, never colour alone) */
+.lx-bargroups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.4rem; }
+.lx-bars .h { font-size: .82rem; font-weight: 600; color: var(--lx-ink-2); margin-bottom: .55rem; }
+.lx-bar { display: grid; grid-template-columns: 8.5rem 1fr 3.4rem; align-items: center; gap: .6rem; margin: .4rem 0; font-size: .85rem; }
+.lx-bar .who { color: var(--lx-ink-2); white-space: nowrap; }
+.lx-bar.window .who { color: var(--lx-ink); font-weight: 600; }
+.lx-bar .track { height: 10px; border-radius: 999px; background: var(--lx-ring); overflow: hidden; }
+.lx-bar .fill { display: block; height: 100%; width: var(--w); border-radius: inherit; background: var(--lx-ink-2);
+  transform-origin: left; animation: lx-grow 600ms var(--lx-ease) both; animation-delay: 120ms; }
+.lx-bar.naive .fill { background: var(--lx-rule); }
+.lx-bar.window .fill { background: var(--lx-accent); }
+.lx-bar .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+@keyframes lx-grow { from { transform: scaleX(0.02); } }
+.lx-table td.num { white-space: nowrap; }
 
 /* Hero */
 .lx-hero h1 { font-size: clamp(2rem, 4.4vw, 3rem); font-weight: 700; letter-spacing: -0.035em; line-height: 1.05;
@@ -160,10 +198,14 @@ CSS = """
 @keyframes lx-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes lx-fade { from { opacity: 0; } }
 /* Reduced motion: keep the fade (it helps orientation), drop the movement */
-@media (prefers-reduced-motion: reduce) { .lx-hero, .lx-kpi { animation-name: lx-fade; animation-duration: 200ms; } }
+@media (prefers-reduced-motion: reduce) {
+  .lx-hero, .lx-kpi { animation-name: lx-fade; animation-duration: 200ms; }
+  .lx-bar .fill { animation: none; }
+}
 
 @media (max-width: 760px) {
   .lx-kpis, .lx-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lx-bargroups { grid-template-columns: 1fr; }
   .lx-versions li { grid-template-columns: 2.6rem 6rem 1fr; }
 }
 """
