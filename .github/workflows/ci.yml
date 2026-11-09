@@ -58,6 +58,7 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://localhost:8501/_stcore/health && break; sleep 2; done
           python scripts/screenshots.py --url http://localhost:8501 --out screenshots
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: dashboard
           path: |

@@ -23,13 +23,17 @@ def ready(page: Page, url: str) -> None:
         raise SystemExit(f"Dashboard error: {errors.first.inner_text()}")
 
 
+def theme_button(page: Page, label: str):
+    return page.locator(".st-key-theme button").filter(has_text=label).first
+
+
 def switch_visible(page: Page) -> None:
     box = page.locator(".st-key-theme").bounding_box()
     vw = page.viewport_size["width"]
     if not box or box["x"] < 0 or box["x"] + box["width"] > vw + 1 or box["y"] < 0:
         raise SystemExit(f"Theme switch not fully visible: {box} (viewport {vw})")
     for label in ("Auto", "Claro", "Noche"):
-        page.get_by_role("button", name=label).first.wait_for(state="visible")
+        theme_button(page, label).wait_for(state="visible", timeout=10_000)
 
 
 def main() -> None:
@@ -43,10 +47,11 @@ def main() -> None:
         browser = p.chromium.launch()
         desktop = browser.new_page(viewport={"width": 1280, "height": 900}, device_scale_factor=2, color_scheme="light")
         ready(desktop, args.url)
+        desktop.screenshot(path=args.out / "light-top.png")
         switch_visible(desktop)
         desktop.screenshot(path=args.out / "light-top.png")
         desktop.screenshot(path=args.out / "light.png", full_page=True)
-        desktop.get_by_role("button", name="Noche").first.click()
+        theme_button(desktop, "Noche").click()
         desktop.wait_for_timeout(2500)
         desktop.screenshot(path=args.out / "dark-top.png")
         desktop.screenshot(path=args.out / "dark.png", full_page=True)
