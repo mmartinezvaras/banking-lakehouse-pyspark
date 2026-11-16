@@ -113,6 +113,8 @@ def cycle_themes(page: Page, system: str) -> None:
         theme_button(page, label).click()
         page.wait_for_timeout(400)
         check_contrast(page, mode)
+    theme_button(page, "Auto").click()
+    check_theme(page, "Auto", system)
 
 
 def switch_visible(page: Page) -> None:
