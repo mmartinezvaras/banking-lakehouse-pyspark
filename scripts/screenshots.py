@@ -97,6 +97,45 @@ def check_contrast(page: Page, mode: str) -> None:
         raise SystemExit(f"Low-contrast text in {mode} mode:\n" + "\n".join(bad[:20]))
 
 
+TOOLBAR_JS = """() => {
+  const parse = c => c.match(/[\\d.]+/g).map(Number);
+  const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); })
+                                     .reduce((s, v, i) => s + v * [.2126, .7152, .0722][i], 0);
+  const box = document.querySelector('[data-testid="stElementToolbarButtonContainer"]');
+  const icon = box && box.querySelector("button svg");
+  if (!icon) return null;
+  const a = lum(parse(getComputedStyle(icon).color)), b = lum(parse(getComputedStyle(box).backgroundColor));
+  return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+}"""
+
+
+def check_chart_tools(page: Page, label: str, mode: str) -> None:
+    """The chart toolbar icons must be visible and the fullscreen view must use the page colours."""
+    theme_button(page, label).click()
+    page.wait_for_timeout(400)
+    chart = page.locator('[data-testid="stVegaLiteChart"], [data-testid="stArrowVegaLiteChart"]').first
+    chart.scroll_into_view_if_needed()
+    chart.hover()
+    page.wait_for_timeout(500)
+    ratio = page.evaluate(TOOLBAR_JS)
+    print(f"  chart toolbar in {mode}: icon contrast {ratio}")
+    if ratio is None or ratio < 3:
+        raise SystemExit(f"Chart toolbar icons are not visible in {mode} mode (contrast {ratio})")
+    page.locator('[data-testid="stElementToolbar"] button[aria-label="Fullscreen"]').first.click()
+    page.wait_for_timeout(600)
+    bg = page.evaluate("""() => { const f = [...document.querySelectorAll('[data-testid="stFullScreenFrame"]')]
+        .find(e => getComputedStyle(e).position === "fixed"); return f ? getComputedStyle(f).backgroundColor : null; }""")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(400)
+    still_open = page.locator('[data-testid="stElementToolbar"] button[aria-label="Close fullscreen"]')
+    if still_open.count():
+        still_open.first.click()
+        page.wait_for_timeout(400)
+    print(f"  fullscreen in {mode}: {bg}")
+    if bg != PAPER[mode]:
+        raise SystemExit(f"Fullscreen view does not follow the {mode} theme: {bg}")
+
+
 def cycle_themes(page: Page, system: str) -> None:
     """Click through every mode twice (and the active one again) and check each change applies."""
     print(f"Theme cycle with the system in {system} mode:")
@@ -113,6 +152,8 @@ def cycle_themes(page: Page, system: str) -> None:
         theme_button(page, label).click()
         page.wait_for_timeout(400)
         check_contrast(page, mode)
+    for label, mode in (("Claro", "light"), ("Noche", "dark")):
+        check_chart_tools(page, label, mode)
     theme_button(page, "Auto").click()
     check_theme(page, "Auto", system)
 

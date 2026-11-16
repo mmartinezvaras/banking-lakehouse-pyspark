@@ -73,7 +73,8 @@ def _vars(tokens: dict) -> str:
 # data-lx-theme on the page's <html> and these rules recolour everything at once, with no rerun.
 # Charts are drawn in the light palette and inverted in night mode: with a black-and-white palette,
 # inverting gives exactly the night tones.
-_CHARTS = ('[data-testid="stVegaLiteChart"]', '[data-testid="stArrowVegaLiteChart"]')
+# Drawn by Streamlit in its light theme (charts, and the "Show data" table), inverted at night.
+_CHARTS = ('[data-testid="stVegaLiteChart"]', '[data-testid="stArrowVegaLiteChart"]', '[data-testid="stDataFrame"]')
 
 
 def _invert(scope: str) -> str:
@@ -177,6 +178,16 @@ html.lx-switching *, html.lx-switching *::before, html.lx-switching *::after { t
   text-underline-offset: 3px; transition: text-decoration-color 150ms ease; }
 @media (hover: hover) and (pointer: fine) { .stApp a:hover { text-decoration-color: var(--lx-accent); } }
 [data-testid="stMainBlockContainer"] { max-width: 1080px; padding-top: 2.5rem; }
+
+/* Chart toolbar (show data, download, fullscreen) and the fullscreen view follow our theme:
+   Streamlit paints them white, which hid the light icons at night. */
+[data-testid="stElementToolbarButtonContainer"] { background: var(--lx-sheet) !important;
+  box-shadow: 0 0 0 1px var(--lx-ring), var(--lx-lift) !important; }
+[data-testid="stElementToolbar"] button, [data-testid="stElementToolbar"] button * { color: var(--lx-ink-2) !important; }
+@media (hover: hover) and (pointer: fine) {
+  [data-testid="stElementToolbar"] button:hover, [data-testid="stElementToolbar"] button:hover * { color: var(--lx-ink) !important; }
+}
+[data-testid="stFullScreenFrame"] { background: var(--lx-paper) !important; }
 
 /* Theme switch: an iframe (see theme_switch_html), right-aligned, never scrolls */
 .st-key-theme { display: flex; align-items: flex-end; width: 100%; }
