@@ -14,12 +14,12 @@ from pathlib import Path
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
-from theme import CHART, page_css
+from theme import CHART, page_css, theme_switch_html
 
 DATA = Path(__file__).parent / "data"
 REPO = "https://github.com/mmartinezvaras/banking-lakehouse-pyspark"
-THEMES = {"auto": ("contrast", "Auto"), "light": ("light_mode", "Claro"), "dark": ("dark_mode", "Noche")}
 REASONS = {
     "duplicate_delivery": "Fila repetida (enviada dos veces)",
     "missing_or_unparseable_amount": "Importe vacío o ilegible",
@@ -39,20 +39,11 @@ CHANNEL = {"pos": "tienda", "online": "online", "atm": "cajero", "app": "app", "
 RULE_SHORT = {"naive": "Regla simple", "window": "Ventanas", "window_review": "Ventanas + revisión"}
 
 st.set_page_config(page_title="Fraude bancario · Lakehouse", page_icon=":material/account_balance:", layout="wide")
-mode_choice = st.session_state.get("theme") or "auto"
-st.html(page_css(mode_choice))
+st.html(page_css())
 
-
-def chart_mode() -> str:
-    if mode_choice != "auto":
-        return mode_choice
-    try:
-        return "dark" if st.context.theme.type == "dark" else "light"
-    except Exception:
-        return "light"
-
-
-C = CHART[chart_mode()]
+# Charts are drawn in the light palette; night mode inverts them in CSS (see theme.page_css),
+# so switching theme never needs a rerun.
+C = CHART["light"]
 
 
 def esc(value) -> str:
@@ -105,10 +96,8 @@ def style(chart: alt.Chart) -> alt.Chart:
 
 
 # ---------- Header ----------
-st.segmented_control(
-    "Tema", options=list(THEMES), format_func=lambda k: f":material/{THEMES[k][0]}: {THEMES[k][1]}",
-    default="auto", key="theme", label_visibility="collapsed",
-)
+with st.container(key="theme"):
+    components.html(theme_switch_html(), height=48, width=300)
 
 if not (DATA / "summary.json").exists():
     st.html(

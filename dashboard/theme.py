@@ -67,10 +67,92 @@ def _vars(tokens: dict) -> str:
     return "".join(f"--lx-{k}:{v};" for k, v in tokens.items())
 
 
-def page_css(mode: str) -> str:
-    light, dark = f":root{{{_vars(LIGHT)}color-scheme:light;}}", f":root{{{_vars(DARK)}color-scheme:dark;}}"
-    tokens = dark if mode == "dark" else light + (f"@media (prefers-color-scheme: dark){{{dark}}}" if mode == "auto" else "")
+# The theme lives in the browser: the switch (theme_switch_html, rendered in an iframe) sets
+# data-lx-theme on the page's <html> and these rules recolour everything at once, with no rerun.
+# Charts are drawn in the light palette and inverted in night mode: with a black-and-white palette,
+# inverting gives exactly the night tones.
+_CHARTS = ('[data-testid="stVegaLiteChart"]', '[data-testid="stArrowVegaLiteChart"]')
+
+
+def _invert(scope: str) -> str:
+    return ", ".join(f"{scope} {chart}" for chart in _CHARTS) + "{filter: invert(1) hue-rotate(180deg);}"
+
+
+def page_css() -> str:
+    light, dark = _vars(LIGHT), _vars(DARK)
+    tokens = (
+        f":root{{{light}color-scheme:light;}}"
+        f"html[data-lx-theme='dark']{{{dark}color-scheme:dark;}}"
+        + _invert("html[data-lx-theme='dark']")
+        # before the switch has run, follow the system
+        + f"@media (prefers-color-scheme: dark){{html:not([data-lx-theme]){{{dark}color-scheme:dark;}}"
+        + _invert("html:not([data-lx-theme])") + "}"
+    )
     return f"<style>@import url('{FONTS}');{tokens}{CSS}{_icon_css()}</style>"
+
+
+SWITCH_STORAGE_KEY = "lx-theme"
+
+
+def theme_switch_html() -> str:
+    """Auto / Claro / Noche. Runs in the browser, so switching is instant and can never get stuck;
+    the choice is remembered in localStorage and Auto follows the system as it changes."""
+    sun = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'
+    moon = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+    auto = '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'
+    svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{}</svg>'
+    buttons = "".join(
+        f'<button type="button" data-t="{key}" aria-pressed="false">{svg.format(icon)}{label}</button>'
+        for key, icon, label in (("auto", auto, "Auto"), ("light", sun, "Claro"), ("dark", moon, "Noche"))
+    )
+    return f"""
+<style>
+  html, body {{ margin: 0; background: transparent; }}
+  body {{ display: flex; justify-content: flex-end; padding: 6px 4px; box-sizing: border-box;
+         font: 500 13px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }}
+  .sw {{ display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; }}
+  button {{ display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; border-radius: 999px;
+           background: transparent; font: inherit; cursor: pointer; white-space: nowrap;
+           transition: background-color 200ms cubic-bezier(.23,1,.32,1), transform 160ms cubic-bezier(.23,1,.32,1); }}
+  button:active {{ transform: scale(.97); }}
+  button:focus-visible {{ outline: none; }}
+  svg {{ width: 14px; height: 14px; flex: none; }}
+  .light .sw {{ background: {BLANCO}; box-shadow: 0 0 0 1px rgba(0,0,0,.08), {LIGHT["lift"]}; }}
+  .light button {{ color: {GRAFITO}; }}
+  .light button[aria-pressed="true"] {{ background: {NEGRO}; color: {BLANCO}; }}
+  .light button:focus-visible {{ box-shadow: 0 0 0 4px {LIGHT["halo"]}; }}
+  .dark .sw {{ background: {DARK["sheet"]}; box-shadow: 0 0 0 1px rgba(255,255,255,.10), {DARK["lift"]}; }}
+  .dark button {{ color: {PLATA}; }}
+  .dark button[aria-pressed="true"] {{ background: {BLANCO}; color: {NEGRO}; }}
+  .dark button:focus-visible {{ box-shadow: 0 0 0 4px {DARK["halo"]}; }}
+  @media (hover: hover) and (pointer: fine) {{
+    .light button[aria-pressed="false"]:hover {{ background: {LIGHT["ring"]}; }}
+    .dark button[aria-pressed="false"]:hover {{ background: {DARK["ring"]}; }}
+  }}
+  @media (prefers-reduced-motion: reduce) {{ button {{ transition: none; }} button:active {{ transform: none; }} }}
+</style>
+<div class="sw" role="group" aria-label="Tema">{buttons}</div>
+<script>
+  const root = window.parent.document.documentElement;
+  const system = window.parent.matchMedia("(prefers-color-scheme: dark)");
+  let choice = "auto";
+  try {{ choice = window.parent.localStorage.getItem("{SWITCH_STORAGE_KEY}") || "auto"; }} catch (e) {{}}
+  if (!["auto", "light", "dark"].includes(choice)) choice = "auto";
+  function apply() {{
+    const effective = choice === "auto" ? (system.matches ? "dark" : "light") : choice;
+    root.setAttribute("data-lx-theme", effective);
+    document.body.className = effective;
+    document.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === choice)));
+  }}
+  document.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {{
+    choice = b.dataset.t;
+    try {{ window.parent.localStorage.setItem("{SWITCH_STORAGE_KEY}", choice); }} catch (e) {{}}
+    apply();
+  }}));
+  system.addEventListener("change", () => {{ if (choice === "auto") apply(); }});
+  apply();
+</script>
+"""
 
 
 CSS = """
@@ -89,37 +171,14 @@ CSS = """
 @media (hover: hover) and (pointer: fine) { .stApp a:hover { text-decoration-color: var(--lx-accent); } }
 [data-testid="stMainBlockContainer"] { max-width: 1080px; padding-top: 2.5rem; }
 
-/* Theme switch: one pill, right-aligned, never scrolls */
+/* Theme switch: an iframe (see theme_switch_html), right-aligned, never scrolls */
 .st-key-theme { display: flex; justify-content: flex-end; width: 100%; }
-.st-key-theme > div, .st-key-theme [data-testid="stButtonGroup"] { width: auto !important; max-width: 100%; overflow: visible !important; }
-.st-key-theme [data-testid="stButtonGroup"] {
-  display: inline-flex; flex-wrap: nowrap; gap: 2px; padding: 3px; background: var(--lx-sheet);
-  border-radius: 999px; box-shadow: 0 0 0 1px var(--lx-ring), var(--lx-lift);
-}
-.st-key-theme [data-testid="stButtonGroup"] div:not(button div) { overflow: visible !important; flex-wrap: nowrap !important; width: auto !important; gap: 2px; }
-.st-key-theme button {
-  flex: 0 0 auto; white-space: nowrap; min-height: 0; margin: 0 !important; padding: .32rem .8rem !important;
-  border: 0 !important; border-radius: 999px !important; background: transparent; color: var(--lx-ink); font-size: .85rem;
-  transition: background-color 200ms var(--lx-ease), transform 160ms var(--lx-ease);
-}
-.st-key-theme button:active { transform: scale(.97); }
-.st-key-theme button p, .st-key-theme button span { color: inherit; }
-[data-testid="stBaseButton-segmented_controlActive"], .st-key-theme button[aria-checked="true"] {
-  background: var(--lx-accent) !important;
-}
-[data-testid="stBaseButton-segmented_controlActive"], [data-testid="stBaseButton-segmented_controlActive"] p,
-[data-testid="stBaseButton-segmented_controlActive"] span, .st-key-theme button[aria-checked="true"] p {
-  color: var(--lx-sheet) !important;
-}
-@media (hover: hover) and (pointer: fine) {
-  .st-key-theme button:not([data-testid="stBaseButton-segmented_controlActive"]):hover { background: var(--lx-ring); }
-}
-.st-key-theme button:focus-visible, .stApp a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--lx-halo) !important; }
+.st-key-theme iframe { display: block; margin-left: auto; color-scheme: normal; }
+.stApp a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--lx-halo) !important; }
 
 .ic { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-right: .4em;
   background-color: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
 .lx-travel .ic { width: 1.5rem; height: 1.5rem; margin: 0; color: var(--lx-ink-2); }
-.stApp [data-testid="stBaseButton-segmented_controlActive"] *, .stApp .st-key-theme button[aria-checked="true"] * { color: var(--lx-sheet) !important; }
 
 /* Rule comparison: plain HTML bars, labelled directly (tone + label, never colour alone) */
 .lx-bargroups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.4rem; }
