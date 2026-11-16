@@ -66,6 +66,37 @@ def check_theme(page: Page, label: str, expected: str) -> None:
         raise SystemExit(f"Theme '{label}' did not apply: expected {expected}, got {state}")
 
 
+CONTRAST_JS = """() => {
+  const parse = c => { const m = c.match(/[\\d.]+/g).map(Number); return {r: m[0], g: m[1], b: m[2], a: m.length > 3 ? m[3] : 1}; };
+  const lum = ({r, g, b}) => { const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
+                               return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+  const mix = (c, under) => ({r: c.r * c.a + under.r * (1 - c.a), g: c.g * c.a + under.g * (1 - c.a), b: c.b * c.a + under.b * (1 - c.a), a: 1});
+  const bgOf = e => { const layers = []; for (; e; e = e.parentElement) { const c = parse(getComputedStyle(e).backgroundColor);
+                        if (c.a > 0) layers.push(c); if (c.a >= 1) break; }
+                      let base = layers.length && layers[layers.length - 1].a >= 1 ? layers.pop() : {r: 255, g: 255, b: 255, a: 1};
+                      while (layers.length) base = mix(layers.pop(), base); return base; };
+  const bad = [];
+  document.querySelectorAll(".stApp *").forEach(e => {
+    const text = [...e.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()).map(n => n.textContent.trim()).join(" ");
+    const cs = getComputedStyle(e);
+    if (!text || cs.visibility === "hidden" || cs.display === "none" || !e.getClientRects().length) return;
+    const bg = bgOf(e), fg = mix(parse(cs.color), bg);
+    const ratio = (Math.max(lum(fg), lum(bg)) + .05) / (Math.min(lum(fg), lum(bg)) + .05);
+    const large = parseFloat(cs.fontSize) >= 24 || (parseFloat(cs.fontSize) >= 18.6 && +cs.fontWeight >= 700);
+    if (ratio < (large ? 3 : 4.5)) bad.push(`${ratio.toFixed(2)} ${e.tagName}.${e.className} "${text.slice(0, 40)}"`);
+  });
+  return bad;
+}"""
+
+
+def check_contrast(page: Page, mode: str) -> None:
+    """Every visible text must be readable (WCAG AA) in this theme."""
+    bad = page.evaluate(CONTRAST_JS)
+    print(f"  contrast in {mode}: {len(bad)} problems")
+    if bad:
+        raise SystemExit(f"Low-contrast text in {mode} mode:\n" + "\n".join(bad[:20]))
+
+
 def cycle_themes(page: Page, system: str) -> None:
     """Click through every mode twice (and the active one again) and check each change applies."""
     print(f"Theme cycle with the system in {system} mode:")
@@ -74,6 +105,16 @@ def cycle_themes(page: Page, system: str) -> None:
     for label, expected in steps:
         theme_button(page, label).click()
         check_theme(page, label, expected)
+    # A theme change must never be animated: background, cards and text change in the same frame.
+    duration = page.evaluate('() => getComputedStyle(document.querySelector(".stApp")).transitionDuration')
+    if any(float(d.strip().rstrip("s") or 0) > 0 for d in duration.split(",")):
+        raise SystemExit(f"The page background animates on theme change ({duration})")
+    for label, mode in (("Claro", "light"), ("Noche", "dark")):
+        theme_button(page, label).click()
+        page.wait_for_timeout(400)
+        check_contrast(page, mode)
+    theme_button(page, "Auto").click()
+    check_theme(page, "Auto", system)
 
 
 def switch_visible(page: Page) -> None:

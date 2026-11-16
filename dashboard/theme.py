@@ -8,6 +8,7 @@ LIGHT = {
     "sheet": BLANCO,
     "ink": NEGRO,
     "ink-2": GRAFITO,
+    "tag": GRAFITO,
     "rule": "rgba(134, 134, 139, 0.35)",
     "accent": NEGRO,
     "accent-soft": INDIGO,
@@ -21,6 +22,7 @@ DARK = {
     "sheet": "#141414",
     "ink": INDIGO,
     "ink-2": PLATA,
+    "tag": INDIGO,  # small grey tags on highlighted rows need more contrast at night
     "rule": "rgba(134, 134, 139, 0.30)",
     "accent": BLANCO,
     "accent-soft": "rgba(255, 255, 255, 0.10)",
@@ -140,7 +142,10 @@ def theme_switch_html() -> str:
   if (!["auto", "light", "dark"].includes(choice)) choice = "auto";
   function apply() {{
     const effective = choice === "auto" ? (system.matches ? "dark" : "light") : choice;
+    root.classList.add("lx-switching");
     root.setAttribute("data-lx-theme", effective);
+    void root.offsetWidth;  // apply the new colours in this frame, with transitions off
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("lx-switching")));
     document.body.className = effective;
     document.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === choice)));
   }}
@@ -160,8 +165,10 @@ CSS = """
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
   background: var(--lx-paper); color: var(--lx-ink);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  transition: background-color 250ms ease, color 250ms ease;
 }
+/* Theme changes are instant and all at once: while switching, nothing on the page animates, so the
+   background, cards and text can never be caught half-way (e.g. black text on a still-dark page). */
+html.lx-switching *, html.lx-switching *::before, html.lx-switching *::after { transition: none !important; }
 [data-testid="stHeader"] { background: transparent; }
 .stApp p, .stApp li, .stApp label, .stApp span:where(:not(.ic):not([data-testid="stIconMaterial"])), .stApp a, [data-testid="stMarkdownContainer"] { color: var(--lx-ink); font-family: "Inter", system-ui, sans-serif; }
 .stApp [data-testid="stIconMaterial"] { color: inherit !important; }
@@ -172,7 +179,7 @@ CSS = """
 [data-testid="stMainBlockContainer"] { max-width: 1080px; padding-top: 2.5rem; }
 
 /* Theme switch: an iframe (see theme_switch_html), right-aligned, never scrolls */
-.st-key-theme { display: flex; justify-content: flex-end; width: 100%; }
+.st-key-theme { display: flex; align-items: flex-end; width: 100%; }
 .st-key-theme iframe { display: block; margin-left: auto; color-scheme: normal; }
 .stApp a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--lx-halo) !important; }
 
@@ -236,7 +243,7 @@ CSS = """
 .lx-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: .05rem .5rem; font-size: .76rem; font-weight: 600;
   border: 1px solid var(--lx-ink); color: var(--lx-ink); white-space: nowrap; }
 .lx-tag.solid { background: var(--lx-accent); color: var(--lx-sheet); border-color: var(--lx-accent); }
-.lx-tag.ghost { border-color: var(--lx-rule); color: var(--lx-ink-2); }
+.lx-tag.ghost { border-color: var(--lx-rule); color: var(--lx-tag); }
 .lx-note { font-size: .86rem; color: var(--lx-ink-2); margin-top: .6rem; line-height: 1.5; }
 
 /* Delta history */
