@@ -11,7 +11,9 @@ Bronze → Silver → Gold on Delta Lake, with MERGE, time travel, a quarantine 
 ![Delta Lake](https://img.shields.io/badge/Delta_Lake-4.2-00ADD4?logo=delta&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/dashboard-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mmartinezvaras/banking-lakehouse-pyspark?quickstart=1)
+### [▶ Live demo](https://fraude-lakehouse-marcos.streamlit.app/)
+
+<sub>Run the whole pipeline yourself:</sub> [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mmartinezvaras/banking-lakehouse-pyspark?quickstart=1)
 
 <img src="https://raw.githubusercontent.com/mmartinezvaras/banking-lakehouse-pyspark/screenshots/light-top.png" alt="Dashboard of the lakehouse" width="860">
 
@@ -99,7 +101,9 @@ The real-time combination is velocity OR card testing OR country hop.
 
 ## Run it
 
-**In the browser:** open in Codespaces (button above). It installs Java 17 and Spark, generates the data, runs the pipeline and opens the dashboard on port 8501.
+**Just the dashboard:** [fraude-lakehouse-marcos.streamlit.app](https://fraude-lakehouse-marcos.streamlit.app/), nothing to install.
+
+**The whole pipeline in the browser:** open in Codespaces (button above). It installs Java 17 and Spark, generates the data, runs the pipeline and opens the dashboard on port 8501.
 
 **Locally** (Python 3.11+ and Java 17):
 
